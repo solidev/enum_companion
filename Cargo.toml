@@ -1,0 +1,3 @@
+[workspace]
+members = ["enum_companion", "enum_companion_derive"]
+resolver = "3"
