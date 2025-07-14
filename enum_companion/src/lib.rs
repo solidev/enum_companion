@@ -22,6 +22,39 @@ where
     fn as_values(&self) -> Vec<V>;
 }
 
+/// A trait for struct fields covered by the `EnumCompanion` derive macro, providing methods to access field data.
+/// This trait is automatically implemented for structs that derive `EnumCompanion`.
+pub trait EnumCompanionField {
+    /// Returns the name of the field.
+    fn name(&self) -> &'static str;
+
+    /// Returns the type of the field as a string.
+    fn type_str(&self) -> &'static str;
+
+    /// Get a title for the field, typically used for display purposes.
+    fn title(&self) -> &'static str {
+        self.name()
+    }
+    /// Get a description for the field, typically used for display purposes.
+    fn description(&self) -> &'static str {
+        "No description provided."
+    }
+    /// Get the order of the field, which can be used for sorting or display purposes.
+    fn order(&self) -> u32 {
+        0
+    }
+}
+
+/// A trait for struct values covered by the `EnumCompanion` derive macro, providing methods to access value data.
+/// This trait is automatically implemented for structs that derive `EnumCompanion`.
+pub trait EnumCompanionValue {
+    /// Returns the name of the field.
+    fn field_name(&self) -> &'static str;
+
+    /// Returns the type of the field as a string.
+    fn type_name(&self) -> &'static str;
+}
+
 extern crate self as enum_companion;
 
 // Tests
@@ -329,5 +362,44 @@ mod tests {
         let name_res: Result<TestValue, _> = name_tuple_fail.try_into();
         assert!(name_res.is_err());
         assert_eq!(name_res.unwrap_err(), TestField::Name);
+    }
+
+    #[test]
+    fn test_field_trait() {
+        use crate::{EnumCompanionField, EnumCompanionValue};
+
+        #[derive(EnumCompanion)]
+        #[companion(derive_field(PartialEq, Debug), derive_value(Debug, PartialEq))]
+        struct Test {
+            #[companion(title = "The Name", description = "The name of the test", order = 1)]
+            name: String,
+            distance: u32,
+        }
+
+        let test = Test {
+            name: "Test".to_string(),
+            distance: 42,
+        };
+
+        // Test EnumCompanionField
+        assert_eq!(TestField::Name.name(), "name");
+        assert_eq!(TestField::Distance.name(), "distance");
+        assert_eq!(TestField::Name.type_str(), "String");
+        assert_eq!(TestField::Distance.type_str(), "u32");
+        assert_eq!(TestField::Name.title(), "The Name");
+        assert_eq!(TestField::Distance.title(), "distance");
+        assert_eq!(TestField::Name.description(), "The name of the test");
+        assert_eq!(TestField::Distance.description(), "");
+        assert_eq!(TestField::Name.order(), 1);
+        assert_eq!(TestField::Distance.order(), 0);
+
+        // Test EnumCompanionValue
+        let name_value = test.value(TestField::Name);
+        assert_eq!(name_value.field_name(), "name");
+        assert_eq!(name_value.type_name(), "String");
+
+        let distance_value = test.value(TestField::Distance);
+        assert_eq!(distance_value.field_name(), "distance");
+        assert_eq!(distance_value.type_name(), "u32");
     }
 }

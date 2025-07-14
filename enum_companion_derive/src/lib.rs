@@ -1,4 +1,9 @@
-#![doc = include_str!("../README.md")]
+//! # Enum Companion Derive
+//!
+//! This crate provides the procedural macro for `enum_companion`.
+//!
+//! Please refer to the [enum_companion](https://docs.rs/enum_companion) documentation for detailed usage and examples.
+
 use darling::{FromDeriveInput, FromField, ast::Data, util::PathList};
 use proc_macro::TokenStream;
 use quote::quote;
@@ -15,6 +20,15 @@ struct FieldAttrs {
     ty: Type,
     /// Rename the enum variant for this field.
     rename: Option<String>,
+    /// The title of the field, used for display or documentation purposes.
+    #[darling(default)]
+    title: Option<String>,
+    /// The description of the field, used for documentation purposes.
+    #[darling(default)]
+    description: Option<String>,
+    /// The order of the field, used for sorting or display purposes.
+    #[darling(default)]
+    order: Option<u32>,
     /// Skip this field from being included in the companion enums.
     #[darling(default)]
     skip: bool,
@@ -111,6 +125,7 @@ pub fn enum_companion_derive(input: TokenStream) -> TokenStream {
     let mut field_types = Vec::new();
     let mut field_variants = Vec::new();
     let mut from_str_arms = Vec::new();
+    let mut field_attrs_vec = Vec::new();
 
     // Iterate over the fields and extract the necessary information.
     for field in fields.fields {
@@ -136,8 +151,9 @@ pub fn enum_companion_derive(input: TokenStream) -> TokenStream {
         });
 
         field_idents.push(ident);
-        field_types.push(field.ty);
+        field_types.push(field.ty.clone());
         field_variants.push(variant);
+        field_attrs_vec.push(field);
     }
 
     // Create the names for the generated enums.
@@ -177,6 +193,129 @@ pub fn enum_companion_derive(input: TokenStream) -> TokenStream {
                     #value_enum_name::#variant(value) => self.#ident = value
                 }
             });
+
+    let enum_companion_field_impl = {
+        let name_arms =
+            field_variants
+                .iter()
+                .zip(field_attrs_vec.iter())
+                .map(|(variant, attrs)| {
+                    let name = attrs
+                        .rename
+                        .clone()
+                        .unwrap_or_else(|| attrs.ident.as_ref().unwrap().to_string());
+                    quote! { Self::#variant => #name }
+                });
+
+        let type_str_arms = field_variants
+            .iter()
+            .zip(field_types.iter())
+            .map(|(variant, ty)| {
+                let type_str = quote!(#ty).to_string();
+                quote! { Self::#variant => #type_str }
+            });
+
+        let title_arms =
+            field_variants
+                .iter()
+                .zip(field_attrs_vec.iter())
+                .map(|(variant, attrs)| {
+                    let title = attrs.title.as_ref().map(|t| quote!(#t)).unwrap_or_else(|| {
+                        let name = attrs
+                            .rename
+                            .clone()
+                            .unwrap_or_else(|| attrs.ident.as_ref().unwrap().to_string());
+                        quote!(#name)
+                    });
+                    quote! { Self::#variant => #title }
+                });
+
+        let description_arms =
+            field_variants
+                .iter()
+                .zip(field_attrs_vec.iter())
+                .map(|(variant, attrs)| {
+                    let description = attrs
+                        .description
+                        .as_ref()
+                        .map(|d| quote!(#d))
+                        .unwrap_or_else(|| quote!(""));
+                    quote! { Self::#variant => #description }
+                });
+
+        let order_arms =
+            field_variants
+                .iter()
+                .zip(field_attrs_vec.iter())
+                .map(|(variant, attrs)| {
+                    let order = attrs.order.unwrap_or(0);
+                    quote! { Self::#variant => #order }
+                });
+
+        quote! {
+            impl ::enum_companion::EnumCompanionField for #field_enum_name {
+                fn name(&self) -> &'static str {
+                    match self {
+                        #(#name_arms),*
+                    }
+                }
+                fn type_str(&self) -> &'static str {
+                    match self {
+                        #(#type_str_arms),*
+                    }
+                }
+                fn title(&self) -> &'static str {
+                    match self {
+                        #(#title_arms),*
+                    }
+                }
+                fn description(&self) -> &'static str {
+                    match self {
+                        #(#description_arms),*
+                    }
+                }
+                fn order(&self) -> u32 {
+                    match self {
+                        #(#order_arms),*
+                    }
+                }
+            }
+        }
+    };
+
+    let enum_companion_value_impl = {
+        let field_name_arms =
+            field_variants
+                .iter()
+                .zip(field_idents.iter())
+                .map(|(variant, ident)| {
+                    let ident_str = ident.to_string();
+                    quote! { Self::#variant(_) => #ident_str }
+                });
+
+        let type_name_arms = field_variants
+            .iter()
+            .zip(field_types.iter())
+            .map(|(variant, ty)| {
+                let type_str = quote!(#ty).to_string();
+                quote! { Self::#variant(_) => #type_str }
+            });
+
+        quote! {
+            impl #impl_generics ::enum_companion::EnumCompanionValue for #value_enum_name #ty_generics #where_clause {
+                fn field_name(&self) -> &'static str {
+                    match self {
+                        #(#field_name_arms),*
+                    }
+                }
+                fn type_name(&self) -> &'static str {
+                    match self {
+                        #(#type_name_arms),*
+                    }
+                }
+            }
+        }
+    };
 
     let trait_impl = if opts.value_fn == "value"
         && opts.update_fn == "update"
@@ -285,6 +424,8 @@ pub fn enum_companion_derive(input: TokenStream) -> TokenStream {
             pub const FIELDS: &'static [#field_enum_name] = &[#(#field_enum_name::#field_variants),*];
         }
 
+        #enum_companion_field_impl
+
         /// An enum representing the values of the struct's fields.
         #[allow(dead_code)]
         #[derive(Clone, #(#derive_value),*)]
@@ -292,6 +433,8 @@ pub fn enum_companion_derive(input: TokenStream) -> TokenStream {
         #vis enum #value_enum_name #ty_generics {
             #(#value_enum_variants),*
         }
+
+        #enum_companion_value_impl
 
         impl std::str::FromStr for #field_enum_name {
             type Err = String;

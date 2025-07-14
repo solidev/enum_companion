@@ -30,30 +30,55 @@ The `#[derive(EnumCompanion)]` macro generates:
 - **Helper Methods**:
   - `value(field: {StructName}Field) -> {StructName}Value`: Get a field's value
   - `update(&mut self, value: {StructName}Value)`: Update a field's value
-  - `fields() -> [{StructName}Field; N]`: Get all field enum variants as an array
+  - `fields() -> &'static [{StructName}Field]`: Get all field enum variants as an array
   - `as_values(&self) -> Vec<{StructName}Value>`: Get all field values as a vector
 - **`FromStr` Implementation**: The `{StructName}Field` enum implements `FromStr` to allow conversion from a string.
-- **`EnumCompanionTrait`**: A trait providing a generic interface to the companion methods, implemented automatically when default method names are used.
+- **`EnumCompanionTrait`**: A trait providing a generic interface to the companion methods, implemented automatically **when default method names are used**.
+- **`EnumCompanionField`** trait: These traits are implemented for the generated enums.
+
+## Traits
+
+### `EnumCompanionTrait<F, V>`
+
+If the default method names (`value`, `update`, `fields`) are not overridden, the macro will also implement the `EnumCompanionTrait`. This allows for generic programming over any struct that derives `EnumCompanion` with default settings.
+
+### `EnumCompanionField`
+
+This trait is implemented for the generated field enum. It provides methods to get the field name, value type, and other metadata :
+
+- `name(&self) -> &str`: Get the field name.
+- `type_str(&self) -> &str`: Get the field value type name.
+- `title(&self) -> &str`: Get the field title.
+- `description(&self) -> &str`: Get the field description.
+- `order(&self) -> u32`: Get the field order.
 
 ### Attributes
 
-- `#[companion(skip)]`: Skip a field from companion enum generation
-- `#[companion(rename = "NewName")]`: Rename the enum variant for a field
-- `#[companion(value_fn = "custom_name")]`: Customize the value getter method name
-- `#[companion(update_fn = "custom_name")]`: Customize the value setter method name
-- `#[companion(fields_fn = "custom_name")]`: Customize the fields getter method name
-- `#[companion(derive_field(Trait1, Trait2))]`: Add derives to the field enum
-- `#[companion(derive_value(Trait1, Trait2))]`: Add derives to the value enum
-- `#[companion(to_serde_field(Attribute))]`: Add Serde attributes to the field enum
-- `#[companion(to_serde_value(Attribute))]`: Add Serde attributes to the value enum
+**On the struct:**
+
+- `#[companion(value_fn = "custom_name")]`: Customize the value getter method name.
+- `#[companion(update_fn = "custom_name")]`: Customize the value setter method name.
+- `#[companion(fields_fn = "custom_name")]`: Customize the fields getter method name.
+- `#[companion(derive_field(Trait1, Trait2))]`: Add derives to the field enum.
+- `#[companion(derive_value(Trait1, Trait2))]`: Add derives to the value enum.
+- `#[companion(serde_field(Attribute))]`: Add Serde attributes to the field enum.
+- `#[companion(serde_value(Attribute))]`: Add Serde attributes to the value enum.
+
+**On fields:**
+
+- `#[companion(skip)]`: Skip a field from companion enum generation.
+- `#[companion(rename = "NewName")]`: Rename the enum variant for a field.
+- `#[companion(title="Title")]`: Set a title for the field (defaults to the field name).
+- `#[companion(description="Description")]`: Set a description for the field (defaults to an empty string).
+- `#[companion(order=1)]`: Set the order for the field (defaults to 0).
 
 ## Examples
 
 ### Basic Example
 
 ```rust
-# use enum_companion::{EnumCompanion, EnumCompanionTrait};
-
+# use enum_companion::EnumCompanion;
+# use crate::enum_companion::EnumCompanionField;
 #[derive(EnumCompanion)]
 #[companion(derive_field(Debug, PartialEq), derive_value(Debug, PartialEq))]
 struct Person {
@@ -84,6 +109,12 @@ fn main() {
     // Get all values as a vector
     let all_values = person.as_values();
     println!("All values: {:?}", all_values);
+
+    // Get a field title, description and type as strings
+    let field_title = PersonField::Name.title();
+    let field_description = PersonField::Name.description();
+    let field_type = PersonField::Name.type_str();
+    println!("Field Title: {}, Description: {}, Type: {}", field_title, field_description, field_type);
 }
 ```
 
@@ -137,16 +168,15 @@ struct MyStruct {
     name: String,
 }
 
-fn main() {
-    let name_tuple = (MyStructField::Name, "Example".to_string());
-    let name_value: MyStructValue = name_tuple.try_into().unwrap();
-    assert_eq!(name_value, MyStructValue::Name("Example".to_string()));
+let name_tuple = (MyStructField::Name, "Example".to_string());
+let name_value: MyStructValue = name_tuple.try_into().unwrap();
+assert_eq!(name_value, MyStructValue::Name("Example".to_string()));
 
-    // This would fail if the inner value type does not match the field.
-    let id_tuple_fail = (MyStructField::Name, 42u32);
-    let id_res: Result<MyStructValue, _> = id_tuple_fail.try_into();
-    assert!(id_res.is_err());
-}
+// This would fail if the inner value type does not match the field.
+let id_tuple_fail = (MyStructField::Name, 42u32);
+let id_res: Result<MyStructValue, _> = id_tuple_fail.try_into();
+assert!(id_res.is_err());
+
 ```
 
 > **Limitation**: Due to Rust's orphan rule, `TryFrom` is not implemented for fields that are generic or contain generic types.
@@ -178,16 +208,37 @@ where
     }
 }
 
-fn main() {
-    let my_struct = MyStruct { foo: 42, bar: "hello".to_string() };
-    process_any_companion(&my_struct);
+let my_struct = MyStruct { foo: 42, bar: "hello".to_string() };
+process_any_companion(&my_struct);
+
+```
+
+### The `EnumCompanionField` Trait
+
+The generated field enum implements the `EnumCompanionField` trait, which provides methods to get the field name, value type, and other metadata:
+
+```rust
+use enum_companion::{EnumCompanion, EnumCompanionField};
+#[derive(EnumCompanion)]
+#[companion(derive_field(Debug, PartialEq), derive_value(Debug, PartialEq))]
+struct Example {
+    #[companion(title="Identifier", description="Id Description", order=1)]
+    id: u32,
+    name: String,
 }
+let field = ExampleField::Id;
+assert_eq!("id", field.name());
+assert_eq!("u32", field.type_str());
+assert_eq!("Identifier", field.title());
+assert_eq!("Id Description", field.description());
+assert_eq!(1, field.order());
+
 ```
 
 ### Full Example with Attributes
 
 ```rust
-use enum_companion::{EnumCompanion, EnumCompanionTrait};
+use enum_companion::{EnumCompanion, EnumCompanionTrait, EnumCompanionField};
 use serde::{Serialize, Deserialize};
 
 #[derive(EnumCompanion)]
@@ -207,6 +258,7 @@ struct UserProfile {
     #[companion(rename = "DisplayName")]
     username: String,
 
+    #[companion(title="Mail", description="User's email address", order=2)]
     email: String,
 
     #[companion(skip)]
@@ -259,6 +311,23 @@ for value in all_values {
         assert_eq!(serialized, r#"{"type":"userId","value":12345}"#);
     }
 }
+
+// Get field infos
+let field = UserProfileField::DisplayName;
+assert_eq!(field.name(), "DisplayName");
+assert_eq!(field.type_str(), "String");
+assert_eq!(field.title(), "DisplayName");
+assert_eq!(field.description(), "");
+assert_eq!(field.order(), 0);
+
+let field = UserProfileField::Email;
+assert_eq!(field.name(), "email");
+assert_eq!(field.type_str(), "String");
+assert_eq!(field.title(), "Mail");
+assert_eq!(field.description(), "User's email address");
+assert_eq!(field.order(), 2);
+
+
 ```
 
 ## Generated Code
@@ -290,12 +359,58 @@ enum ExampleField {
 impl ExampleField {
     pub const FIELDS: &'static [ExampleField] = &[ExampleField::Id, ExampleField::Name];
 }
+impl ::enum_companion::EnumCompanionField for ExampleField {
+    fn name(&self) -> &'static str {
+        match self {
+            Self::Id => "id",
+            Self::Name => "name",
+        }
+    }
+    fn type_str(&self) -> &'static str {
+        match self {
+            Self::Id => "u32",
+            Self::Name => "String",
+        }
+    }
+    fn title(&self) -> &'static str {
+        match self {
+            Self::Id => "id",
+            Self::Name => "name",
+        }
+    }
+    fn description(&self) -> &'static str {
+        match self {
+            Self::Id => "",
+            Self::Name => "",
+        }
+    }
+    fn order(&self) -> u32 {
+        match self {
+            Self::Id => 0u32,
+            Self::Name => 0u32,
+        }
+    }
+}
 #[doc = r" An enum representing the values of the struct's fields."]
 #[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq)]
 enum ExampleValue {
     Id(u32),
     Name(String),
+}
+impl ::enum_companion::EnumCompanionValue for ExampleValue {
+    fn field_name(&self) -> &'static str {
+        match self {
+            Self::Id(_) => "id",
+            Self::Name(_) => "name",
+        }
+    }
+    fn type_name(&self) -> &'static str {
+        match self {
+            Self::Id(_) => "u32",
+            Self::Name(_) => "String",
+        }
+    }
 }
 impl std::str::FromStr for ExampleField {
     type Err = String;
@@ -334,7 +449,7 @@ impl Example {
         }
     }
 }
-impl enum_companion_trait::EnumCompanionTrait<ExampleField, ExampleValue> for Example {
+impl ::enum_companion::EnumCompanionTrait<ExampleField, ExampleValue> for Example {
     fn value(&self, field: ExampleField) -> ExampleValue {
         self.value(field)
     }
@@ -346,6 +461,44 @@ impl enum_companion_trait::EnumCompanionTrait<ExampleField, ExampleValue> for Ex
     }
     fn as_values(&self) -> Vec<ExampleValue> {
         self.as_values()
+    }
+}
+impl std::convert::TryFrom<ExampleValue> for u32 {
+    type Error = ExampleValue;
+    fn try_from(value: ExampleValue) -> Result<Self, Self::Error> {
+        match value {
+            ExampleValue::Id(val) => Ok(val),
+            _ => Err(value),
+        }
+    }
+}
+impl std::convert::TryFrom<ExampleValue> for String {
+    type Error = ExampleValue;
+    fn try_from(value: ExampleValue) -> Result<Self, Self::Error> {
+        match value {
+            ExampleValue::Name(val) => Ok(val),
+            _ => Err(value),
+        }
+    }
+}
+impl std::convert::TryFrom<(ExampleField, u32)> for ExampleValue {
+    type Error = ExampleField;
+    fn try_from(value: (ExampleField, u32)) -> Result<Self, Self::Error> {
+        let (field, value) = value;
+        match field {
+            ExampleField::Id => Ok(ExampleValue::Id(value)),
+            _ => Err(field),
+        }
+    }
+}
+impl std::convert::TryFrom<(ExampleField, String)> for ExampleValue {
+    type Error = ExampleField;
+    fn try_from(value: (ExampleField, String)) -> Result<Self, Self::Error> {
+        let (field, value) = value;
+        match field {
+            ExampleField::Name => Ok(ExampleValue::Name(value)),
+            _ => Err(field),
+        }
     }
 }
 ```
