@@ -28,7 +28,7 @@ struct FieldAttrs {
     description: Option<String>,
     /// The order of the field, used for sorting or display purposes.
     #[darling(default)]
-    order: Option<u32>,
+    order: Option<isize>,
     /// Skip this field from being included in the companion enums.
     #[darling(default)]
     skip: bool,
@@ -274,7 +274,7 @@ pub fn enum_companion_derive(input: TokenStream) -> TokenStream {
                         #(#description_arms),*
                     }
                 }
-                fn order(&self) -> u32 {
+                fn order(&self) -> isize {
                     match self {
                         #(#order_arms),*
                     }

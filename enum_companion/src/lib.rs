@@ -40,7 +40,7 @@ pub trait EnumCompanionField {
         "No description provided."
     }
     /// Get the order of the field, which can be used for sorting or display purposes.
-    fn order(&self) -> u32 {
+    fn order(&self) -> isize {
         0
     }
 }
