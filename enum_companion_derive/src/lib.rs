@@ -424,6 +424,16 @@ pub fn enum_companion_derive(input: TokenStream) -> TokenStream {
             pub const FIELDS: &'static [#field_enum_name] = &[#(#field_enum_name::#field_variants),*];
         }
 
+        impl std::fmt::Display for #field_enum_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(
+                    f,
+                    "{}",
+                    <#field_enum_name as ::enum_companion::EnumCompanionField>::name(self)
+                )
+            }
+        }
+
         #enum_companion_field_impl
 
         /// An enum representing the values of the struct's fields.

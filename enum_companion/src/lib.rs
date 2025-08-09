@@ -402,4 +402,30 @@ mod tests {
         assert_eq!(distance_value.field_name(), "distance");
         assert_eq!(distance_value.type_name(), "u32");
     }
+
+    #[test]
+    fn test_display_and_fromstr_for_field() {
+        use std::str::FromStr;
+        #[allow(dead_code)]
+        #[derive(EnumCompanion)]
+        #[companion(derive_field(PartialEq, Debug), derive_value(Debug, PartialEq))]
+        struct Test {
+            #[companion(rename = "DisplayName")]
+            name: String,
+            distance: u32,
+        }
+
+        // Display should use name()
+        assert_eq!(format!("{}", TestField::DisplayName), "DisplayName");
+        assert_eq!(format!("{}", TestField::Distance), "distance");
+
+        // FromStr should accept name() and the original snake_case and PascalCase
+        assert_eq!(
+            TestField::from_str("DisplayName"),
+            Ok(TestField::DisplayName)
+        );
+        assert_eq!(TestField::from_str("distance"), Ok(TestField::Distance));
+        assert_eq!(TestField::from_str("Distance"), Ok(TestField::Distance));
+        assert!(TestField::from_str("unknown").is_err());
+    }
 }

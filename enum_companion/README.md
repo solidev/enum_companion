@@ -32,7 +32,8 @@ The `#[derive(EnumCompanion)]` macro generates:
   - `update(&mut self, value: {StructName}Value)`: Update a field's value
   - `fields() -> &'static [{StructName}Field]`: Get all field enum variants as an array
   - `as_values(&self) -> Vec<{StructName}Value>`: Get all field values as a vector
-- **`FromStr` Implementation**: The `{StructName}Field` enum implements `FromStr` to allow conversion from a string.
+- **`FromStr` Implementation**: The `{StructName}Field` enum implements `FromStr` to allow conversion from a string (using the field `::name()`).
+- **`Display` Implementation**: The `{StructName}Field` enum implements `Display` to provide a user-friendly string representation (using the field `::name()`)
 - **`EnumCompanionTrait`**: A trait providing a generic interface to the companion methods, implemented automatically **when default method names are used**.
 - **`EnumCompanionField`** trait: These traits are implemented for the generated enums.
 
