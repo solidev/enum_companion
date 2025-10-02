@@ -4,7 +4,7 @@
 
 A Rust procedural macro that generates companion enums for structs, enabling dynamic field access and updates. This crate provides type-safe runtime reflection capabilities for struct fields.
 
-> ⚠️ **Work In Progress:** This crate is currently a big WIP (Work In Progress). The API is unstable and may change significantly. Use at your own risk!
+> ⚠️ **Work In Progress:** This crate is currently a work in progress. The API and features may slightly change in future releases, but the core functionality is stable and usable.
 
 ## Adding to Your Project
 
@@ -12,7 +12,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-enum_companion = "0.1.2"
+enum_companion = "0.1.4"
 ```
 
 Or using cargo:
