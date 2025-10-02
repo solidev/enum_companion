@@ -37,7 +37,7 @@ pub trait EnumCompanionField {
     }
     /// Get a description for the field, typically used for display purposes.
     fn description(&self) -> &'static str {
-        "No description provided."
+        self.name()
     }
     /// Get the order of the field, which can be used for sorting or display purposes.
     fn order(&self) -> isize {

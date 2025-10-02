@@ -519,13 +519,12 @@ impl<'ast, 'a> Visit<'ast> for GenericVisitor<'a> {
         if self.contains_generic {
             return;
         }
-        if i.qself.is_none() {
-            if let Some(segment) = i.path.segments.last() {
-                if self.generic_params.contains(&segment.ident.to_string()) {
-                    self.contains_generic = true;
-                    return;
-                }
-            }
+        if i.qself.is_none()
+            && let Some(segment) = i.path.segments.last()
+            && self.generic_params.contains(&segment.ident.to_string())
+        {
+            self.contains_generic = true;
+            return;
         }
         visit::visit_type_path(self, i);
     }
