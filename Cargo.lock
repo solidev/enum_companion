@@ -57,7 +57,7 @@ dependencies = [
 
 [[package]]
 name = "enum_companion"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "enum_companion_derive",
  "serde",
