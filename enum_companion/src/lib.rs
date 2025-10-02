@@ -428,4 +428,33 @@ mod tests {
         assert_eq!(TestField::from_str("Distance"), Ok(TestField::Distance));
         assert!(TestField::from_str("unknown").is_err());
     }
+
+    #[test]
+    fn test_raw_identifier_field() {
+        use crate::EnumCompanionField;
+
+        #[derive(EnumCompanion)]
+        #[companion(derive_field(PartialEq, Debug), derive_value(Debug, PartialEq))]
+        struct Foo {
+            name: String,
+            id: i64,
+            r#type: String,
+        }
+
+        let foo = Foo {
+            name: "Foo".to_string(),
+            id: 123,
+            r#type: "example".to_string(),
+        };
+
+        assert_eq!(
+            Foo::fields(),
+            &[FooField::Name, FooField::Id, FooField::Type]
+        );
+        assert_eq!(
+            foo.value(FooField::Type),
+            FooValue::Type("example".to_string())
+        );
+        assert_eq!(FooField::Type.name(), "type");
+    }
 }

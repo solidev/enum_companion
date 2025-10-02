@@ -8,7 +8,9 @@ use darling::{FromDeriveInput, FromField, ast::Data, util::PathList};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    DeriveInput, Ident, Type, parse_macro_input,
+    DeriveInput, Ident, Type,
+    ext::IdentExt,
+    parse_macro_input,
     visit::{self, Visit},
 };
 
@@ -134,13 +136,14 @@ pub fn enum_companion_derive(input: TokenStream) -> TokenStream {
         }
 
         let ident = field.ident.clone().unwrap();
+        let ident_unraw = ident.unraw().to_string();
         let variant_name_str = field
             .rename
             .clone()
-            .unwrap_or_else(|| to_pascal_case(&ident.to_string()));
+            .unwrap_or_else(|| to_pascal_case(&ident_unraw));
         let variant = Ident::new(&variant_name_str, ident.span());
 
-        let ident_str = ident.to_string();
+        let ident_str = ident_unraw.clone();
         let mut patterns = vec![ident_str.clone()];
         if variant_name_str != ident_str {
             patterns.push(variant_name_str);
@@ -203,7 +206,7 @@ pub fn enum_companion_derive(input: TokenStream) -> TokenStream {
                     let name = attrs
                         .rename
                         .clone()
-                        .unwrap_or_else(|| attrs.ident.as_ref().unwrap().to_string());
+                        .unwrap_or_else(|| attrs.ident.as_ref().unwrap().unraw().to_string());
                     quote! { Self::#variant => #name }
                 });
 
@@ -224,7 +227,7 @@ pub fn enum_companion_derive(input: TokenStream) -> TokenStream {
                         let name = attrs
                             .rename
                             .clone()
-                            .unwrap_or_else(|| attrs.ident.as_ref().unwrap().to_string());
+                            .unwrap_or_else(|| attrs.ident.as_ref().unwrap().unraw().to_string());
                         quote!(#name)
                     });
                     quote! { Self::#variant => #title }
@@ -289,7 +292,7 @@ pub fn enum_companion_derive(input: TokenStream) -> TokenStream {
                 .iter()
                 .zip(field_idents.iter())
                 .map(|(variant, ident)| {
-                    let ident_str = ident.to_string();
+                    let ident_str = ident.unraw().to_string();
                     quote! { Self::#variant(_) => #ident_str }
                 });
 
